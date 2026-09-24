@@ -1,8 +1,40 @@
 # Royale: A Casio AE-1200-a-like written in Zig
 
-![Pebble Royale: Written by hand, with love, in Zig.](https://cdn.some.pics/ewie/69e0f1b5d85be.png)
+This is an unofficial personal fork of **Royale**, created by **Evie Finch
+([qt-dork](https://github.com/qt-dork))**. All credit for the original watchface,
+its design, artwork, and original implementation belongs to the original creator.
+I do not claim authorship of Royale.
+
+**Original project:** [qt-dork/zig-pebble-face](https://github.com/qt-dork/zig-pebble-face)
+
+The modifications in this fork were **vibe coded with OpenAI Codex** for my own
+Pebble Time 2. They add preferences and fixes I wanted for personal use. This is
+not an official release from the original creator, and the original creator is
+not responsible for these changes. Support for this fork is best-effort, with no
+promise of ongoing maintenance. Please report fork-specific issues here rather
+than asking the original creator to support them.
+
+The original copyright notice and [license](LICENSE) are preserved. Credit also
+goes to [vsergeev/zig-pebble-sdk](https://github.com/vsergeev/zig-pebble-sdk) for the
+Zig integration and [Rebble Clay](https://github.com/pebble-dev/clay) for the
+configuration framework.
+
+![Original Royale watchface by Evie Finch](https://cdn.some.pics/ewie/69e0f1b5d85be.png)
 
 Pebble Time 2 (`emery`) watchface using the [Zig Pebble SDK](https://github.com/vsergeev/zig-pebble-sdk).
+
+## Changes in this fork
+
+- Updated the build to Zig 0.16.0 and Pebble SDK 4.33.1.
+- Added 24-hour time (`00`–`23`), preserving the original faint PM artwork.
+- Fixed timezone minute wrapping and fractional-hour offset calculations.
+- Added a 30-second refresh option.
+- Added temporary live seconds after a wrist flick, returning to the selected
+  refresh interval afterward.
+
+The build, automated checks, and emulator behavior have been tested. That does
+not establish long-term battery performance or wrist-detection reliability on
+physical watches; this fork is shared as an experimental personal build.
 
 ## Build
 
