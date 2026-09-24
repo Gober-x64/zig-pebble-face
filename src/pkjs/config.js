@@ -15,6 +15,29 @@ module.exports = [
 				"type": "heading",
 				"defaultValue": "Preferences",
 			},
+            {
+                type: "select",
+                label: "Time format",
+                messageKey: "SettingsHourFormat",
+                defaultValue: "0",
+                options: [
+                    { label: "Use watch setting", value: "0" },
+                    { label: "12-hour", value: "1" },
+                    { label: "24-hour (00–23)", value: "2" }
+                ]
+            },
+            {
+                type: "select",
+                label: "Show live seconds after a wrist flick",
+                messageKey: "SettingsFlickSeconds",
+                defaultValue: "10",
+                options: [
+                    { label: "Off", value: "0" },
+                    { label: "5 seconds", value: "5" },
+                    { label: "10 seconds", value: "10" },
+                    { label: "15 seconds", value: "15" }
+                ]
+            },
 			{
 				"type": "select",
 				"label":
@@ -31,14 +54,18 @@ module.exports = [
 						"value": "1",
 					},
 					{
-						"label": "Per Minute",
+						"label": "Per 30 Seconds",
+                        "value": "3",
+                    },
+                    {
+                        "label": "Per Minute",
 						"value": "2",
 					},
 				],
 			},
 			{
 				"type": "select",
-				"label": "What time zone do you want to track?",
+				"label": "Analog dial time zone (fixed UTC offsets; no daylight saving)",
 				"messageKey": "SettingsTimeZone",
 				"defaultValue": "-1",
 				"options": [

@@ -8,10 +8,12 @@ const pog = @import("pog.zig");
 const settings = @import("settings.zig");
 const tz = @import("tz.zig");
 const utils = @import("utils.zig");
+const logic = @import("time_logic.zig");
 
 const State = struct {
     window: ?*pebble.Window = null,
-    init_done: bool = false,
+    flick_timer: ?*pebble.AppTimer = null,
+    twenty_four: bool = false,
     bg_bitmap_layer: ?*pebble.BitmapLayer = null,
     bg_bitmap: ?*pebble.GBitmap = null,
     pm_bitmap_layer: ?*pebble.BitmapLayer = null,
@@ -116,6 +118,29 @@ fn battery_update_proc(_: ?*pebble.Layer, ctx: ?*pebble.GContext) callconv(.c) v
 }
 
 fn handle_tick(_: ?*pebble.tm, _: pebble.TimeUnits) callconv(.c) void {
+    const raw = pebble.time(null);
+    const current = pebble.localtime(&raw).*;
+    if (logic.shouldRefresh(settings.settingsGetSeconds(), s.flick_timer != null, @intCast(current.tm_sec))) updateClock();
+}
+
+fn subscribeTicks() void {
+    pebble.tick_timer_service_unsubscribe();
+    const minute_only = settings.settingsGetSeconds() == .PerMinute and s.flick_timer == null;
+    pebble.tick_timer_service_subscribe(if (minute_only) pebble.MINUTE_UNIT else pebble.SECOND_UNIT, handle_tick);
+}
+
+fn flickExpired(_: ?*anyopaque) callconv(.c) void {
+    s.flick_timer = null;
+    subscribeTicks();
+    updateClock();
+}
+
+fn handleFlick(_: pebble.AccelAxisType, _: i32) callconv(.c) void {
+    const duration = settings.settingsGetFlickSeconds();
+    if (duration == 0 or settings.settingsGetSeconds() == .PerSecond) return;
+    if (s.flick_timer) |timer| pebble.app_timer_cancel(timer);
+    s.flick_timer = pebble.app_timer_register(duration * 1000, flickExpired, null);
+    subscribeTicks();
     updateClock();
 }
 
@@ -126,10 +151,10 @@ fn updateClock() void {
     _ = pebble.time(&raw_time);
     time_info = pebble.localtime(&raw_time);
 
-    if (s.init_done and settings.settingsGetSeconds() == .PerFifteen and @rem(time_info.?.tm_sec, 15) != 0) return;
+    s.twenty_four = settings.settingsIs24Hour();
 
     // am/pm
-    if (time_info.?.tm_hour > 11) {
+    if (!s.twenty_four and time_info.?.tm_hour > 11) {
         pebble.layer_set_hidden(pebble.bitmap_layer_get_layer(s.pm_bitmap_layer), false);
     } else {
         pebble.layer_set_hidden(pebble.bitmap_layer_get_layer(s.pm_bitmap_layer), true);
@@ -152,26 +177,15 @@ fn updateClock() void {
     const hr: usize = @intCast(time_info.?.tm_hour);
     const min: usize = @intCast(time_info.?.tm_min);
     setMin(hr, min);
-
-    s.init_done = true;
 }
 
 fn clock_update_proc(_: ?*pebble.Layer, ctx: ?*pebble.GContext) callconv(.c) void {
     var raw_time: pebble.time_t = undefined;
-    var time_info: ?*pebble.tm = undefined;
-    var utc: ?*pebble.tm = undefined;
-
     _ = pebble.time(&raw_time);
-    time_info = pebble.localtime(&raw_time);
-    utc = pebble.gmtime(&raw_time);
-
-    var offset: pebble.tm = undefined;
     const zone = settings.settingsGetTimeZone();
-    if (zone == .None) {
-        offset = time_info.?.*;
-    } else {
-        offset = tz.offsetTime(utc.?.*, zone);
-    }
+    // localtime/gmtime may share static storage; copy immediately and call only
+    // the conversion needed by this dial.
+    const offset = if (zone == .None) pebble.localtime(&raw_time).* else tz.offsetTime(pebble.gmtime(&raw_time).*, zone);
 
     const seconds: isize = offset.tm_sec;
     const minutes: isize = offset.tm_min;
@@ -225,7 +239,11 @@ fn updateDate(_: ?*pebble.Layer, ctx: ?*pebble.GContext) callconv(.c) void {
 
     const month = s.date_digits[0];
     const month_dest: pebble.GRect = .{ .origin = .{ .x = DATE_DIGIT_X, .y = DATE_DIGIT_Y }, .size = .{ .h = DATE_DIGIT_HEIGHT, .w = DATE_DIGIT_WIDTH } };
-    pebble.graphics_draw_bitmap_in_rect(ctx, s.s_digits_bitmaps[month], month_dest);
+    pebble.graphics_draw_bitmap_in_rect(ctx, s.s_digits_bitmaps[month % 10], month_dest);
+    if (month >= 10) {
+        const tens_month_dest: pebble.GRect = .{ .origin = .{ .x = DATE_DIGIT_X - DATE_DIGIT_WIDTH - 1, .y = DATE_DIGIT_Y }, .size = .{ .h = DATE_DIGIT_HEIGHT, .w = DATE_DIGIT_WIDTH } };
+        pebble.graphics_draw_bitmap_in_rect(ctx, s.s_digits_bitmaps[1], tens_month_dest);
+    }
     const day_x_offset = DATE_DIGIT_X + DATE_DIGIT_WIDTH + 6; // 6 is the width of the dash
     const tens_day_dest: pebble.GRect = .{ .origin = .{ .x = day_x_offset, .y = DATE_DIGIT_Y }, .size = .{ .h = DATE_DIGIT_HEIGHT, .w = DATE_DIGIT_WIDTH } };
     const ones_day_dest: pebble.GRect = .{ .origin = .{ .x = day_x_offset + DATE_DIGIT_WIDTH + 2, .y = DATE_DIGIT_Y }, .size = .{ .h = DATE_DIGIT_HEIGHT, .w = DATE_DIGIT_WIDTH } };
@@ -258,12 +276,12 @@ fn updateSec(_: ?*pebble.Layer, ctx: ?*pebble.GContext) callconv(.c) void {
 fn setSec(sec: usize) void {
     s.sec_digits[0] = @divTrunc(sec, 10);
     s.sec_digits[1] = sec % 10;
-    if (settings.settingsGetSeconds() == .PerFifteen and sec % 15 != 0) return;
     pebble.layer_mark_dirty(s.sec_layer);
     pebble.layer_mark_dirty(s.clock_layer);
 }
 
 fn updateMin(_: ?*pebble.Layer, ctx: ?*pebble.GContext) callconv(.c) void {
+    // Keep the original inactive PM legend in the background artwork.
     pebble.graphics_context_set_compositing_mode(ctx, pebble.GCompOpSet);
 
     const min_size = pebble.GSize{
@@ -277,7 +295,7 @@ fn updateMin(_: ?*pebble.Layer, ctx: ?*pebble.GContext) callconv(.c) void {
     const tens_min_dest: pebble.GRect = .{ .origin = .{ .x = min_digit_x, .y = HR_DIGIT_Y }, .size = min_size };
     const ones_min_dest: pebble.GRect = .{ .origin = .{ .x = min_digit_x + MIN_DIGIT_WIDTH + MIN_DIGIT_GAP, .y = HR_DIGIT_Y }, .size = min_size };
 
-    if (s.min_digits[0] == 1) {
+    if (s.twenty_four or s.min_digits[0] != 0) {
         pebble.graphics_draw_bitmap_in_rect(ctx, s.l_digits_bitmaps[s.min_digits[0]], tens_hr_dest);
     }
     pebble.graphics_draw_bitmap_in_rect(ctx, s.l_digits_bitmaps[s.min_digits[1]], ones_hr_dest);
@@ -286,18 +304,9 @@ fn updateMin(_: ?*pebble.Layer, ctx: ?*pebble.GContext) callconv(.c) void {
 }
 
 fn setMin(hr: usize, min: usize) void {
-    // useless checking to avoid marking dirty. will fix later.
-    const old_hr = (s.min_digits[0] * 10) + s.min_digits[1];
-    const old_min = (s.min_digits[2] * 10) + s.min_digits[3];
-    if (old_hr == hr and old_min == min) {
-        return;
-    }
-
-    var twelve_hr = hr % 12; // I don't yet support 24 hour mode so i'm forcing 12 hour mode. i will add it soon.
-    twelve_hr = if (twelve_hr == 0) 12 else twelve_hr; // bad code
-
-    s.min_digits[0] = @divTrunc(twelve_hr, 10);
-    s.min_digits[1] = twelve_hr % 10;
+    const display_hour = logic.displayHour(hr, s.twenty_four);
+    s.min_digits[0] = @divTrunc(display_hour, 10);
+    s.min_digits[1] = display_hour % 10;
 
     s.min_digits[2] = @divTrunc(min, 10);
     s.min_digits[3] = min % 10;
@@ -320,6 +329,8 @@ fn updateMap(_: ?*pebble.Layer, ctx: ?*pebble.GContext) callconv(.c) void {
 }
 
 fn forceUpdate() void {
+    if (s.flick_timer) |timer| pebble.app_timer_cancel(timer);
+    s.flick_timer = null;
     updateClock();
 
     pebble.layer_mark_dirty(s.bat_layer);
@@ -328,8 +339,7 @@ fn forceUpdate() void {
     pebble.layer_mark_dirty(s.sec_layer);
     pebble.layer_mark_dirty(s.min_layer);
 
-    pebble.tick_timer_service_unsubscribe();
-    pebble.tick_timer_service_subscribe(if (settings.settingsGetSeconds() == .PerMinute) pebble.MINUTE_UNIT else pebble.SECOND_UNIT, handle_tick);
+    subscribeTicks();
 
     s.cur_map = tz.mapIndex(settings.settingsGetTimeZone());
     pebble.layer_mark_dirty(s.map_layer);
@@ -424,6 +434,12 @@ fn window_load(window: ?*pebble.Window) callconv(.c) void {
 }
 
 fn window_unload(_: ?*pebble.Window) callconv(.c) void {
+    pebble.tick_timer_service_unsubscribe();
+    pebble.accel_tap_service_unsubscribe();
+    pebble.battery_state_service_unsubscribe();
+    if (s.flick_timer) |timer| pebble.app_timer_cancel(timer);
+    s.flick_timer = null;
+    pebble.layer_destroy(s.clock_layer);
     pebble.gbitmap_destroy(s.bg_bitmap);
     pebble.bitmap_layer_destroy(s.bg_bitmap_layer);
 
@@ -477,7 +493,8 @@ export fn main() void {
 
     // update clock
     updateClock();
-    pebble.tick_timer_service_subscribe(if (settings.settingsGetSeconds() == .PerMinute) pebble.MINUTE_UNIT else pebble.SECOND_UNIT, handle_tick);
+    subscribeTicks();
+    pebble.accel_tap_service_subscribe(handleFlick);
 
     // update battery
     pebble.battery_state_service_subscribe(battery_callback);

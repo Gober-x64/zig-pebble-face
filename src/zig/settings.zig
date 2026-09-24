@@ -1,29 +1,9 @@
 const pebble = @import("pebble");
 const presource = @import("pebble_appids");
 
-// const SETTINGS_SECONDS_KEY = 1;
-// const SETTINGS_TIMEZONE_KEY = 2;
-
-// pub const ClaySettings = struct {
-//     EnableSeconds: c_int,
-//     TimeZone: c_int,
-
-//     pub fn toSettings(self: @This()) Settings {
-//         return .{
-//             .seconds = @enumFromInt(self.EnableSeconds),
-//             .tz = @enumFromInt(self.TimeZone),
-//         };
-//     }
-// };
-
-// const SECONDS_KEY = 1;
-// const TIMEZONE_KEY = 2;
-
-pub const SecondsOptions = enum(isize) {
-    PerSecond = 0,
-    PerFifteen = 1,
-    PerMinute = 2,
-};
+const logic = @import("time_logic.zig");
+pub const SecondsOptions = logic.SecondsOptions;
+pub const HourFormat = logic.HourFormat;
 
 pub const TimeZoneOptions = enum(isize) {
     None = -1,
@@ -83,13 +63,6 @@ const DEFAULT = Settings{};
 pub const Settings = struct {
     seconds: SecondsOptions = SecondsOptions.PerSecond,
     tz: TimeZoneOptions = TimeZoneOptions.None,
-
-    // pub fn toClay(self: @This()) ClaySettings {
-    //     return .{
-    //         .EnableSeconds = self.seconds,
-    //         .TimeZone = self.tz,
-    //     };
-    // }
 };
 
 pub fn settingsRead(key: usize) ?isize {
@@ -103,7 +76,7 @@ pub fn settingsSetSeconds(option: SecondsOptions) void {
 
 pub fn settingsGetSeconds() SecondsOptions {
     const read = settingsRead(@intFromEnum(presource.MESSAGE_KEYS.SettingsEnableSeconds));
-    if (read == null) return DEFAULT.seconds else return @enumFromInt(read.?);
+    if (read == null) return DEFAULT.seconds else return @import("std").enums.fromInt(SecondsOptions, read.?) orelse DEFAULT.seconds;
 }
 
 pub fn settingsSetTimeZone(option: TimeZoneOptions) void {
@@ -115,5 +88,23 @@ pub fn settingsSetTimeZone(option: TimeZoneOptions) void {
 pub fn settingsGetTimeZone() TimeZoneOptions {
     const value = settingsRead(@intFromEnum(presource.MESSAGE_KEYS.SettingsTimeZone));
     if (value == null) return DEFAULT.tz;
-    return @enumFromInt(value.?);
+    return @import("std").enums.fromInt(TimeZoneOptions, value.?) orelse DEFAULT.tz;
+}
+
+pub fn settingsGetHourFormat() HourFormat {
+    const value = settingsRead(@intFromEnum(presource.MESSAGE_KEYS.SettingsHourFormat)) orelse 0;
+    return @import("std").enums.fromInt(HourFormat, value) orelse .System;
+}
+
+pub fn settingsIs24Hour() bool {
+    return switch (settingsGetHourFormat()) {
+        .System => pebble.clock_is_24h_style(),
+        .Twelve => false,
+        .TwentyFour => true,
+    };
+}
+
+pub fn settingsGetFlickSeconds() u32 {
+    const value = settingsRead(@intFromEnum(presource.MESSAGE_KEYS.SettingsFlickSeconds)) orelse 10;
+    return if (value == 0 or value == 5 or value == 10 or value == 15) @intCast(value) else 10;
 }

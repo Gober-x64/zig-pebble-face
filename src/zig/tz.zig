@@ -1,5 +1,5 @@
-// bad solution. will move to doing it on the phone later, when i can do better testing
-// doesn't support dst (sorry)
+// City selections are fixed UTC offsets, as shown in the settings page.
+// Use None to follow the watch's local timezone and daylight-saving rules.
 
 const pebble = @import("pebble");
 
@@ -16,7 +16,7 @@ pub fn offsetTime(from: pebble.tm, tz: settings.TimeZoneOptions) pebble.tm {
         .CDMX, .Chicago => return newTm(from, -6, 0),
         .NYC => return newTm(from, -5, 0),
         .Santiago, .Halifax => return newTm(from, -4, 0),
-        .StJohns => return newTm(from, -3, 30),
+        .StJohns => return newTm(from, -3, -30),
         .Rio => return newTm(from, -3, 0),
         .FdeNoronha => return newTm(from, -2, 0),
         .Praia => return newTm(from, -1, 0),
@@ -24,7 +24,7 @@ pub fn offsetTime(from: pebble.tm, tz: settings.TimeZoneOptions) pebble.tm {
         .Madrid, .Paris, .Rome, .Berlin, .Stockholm => return newTm(from, 1, 0),
         .Athen, .Cairo, .Jerusalem => return newTm(from, 2, 0),
         .Moscow, .Jeddah => return newTm(from, 3, 0),
-        .Tehran => return newTm(from, 2, 30),
+        .Tehran => return newTm(from, 3, 30),
         .Dubai => return newTm(from, 4, 0),
         .Kabul => return newTm(from, 4, 30),
         .Karachi => return newTm(from, 5, 0),
@@ -69,18 +69,13 @@ pub fn mapIndex(tz: settings.TimeZoneOptions) ?usize {
     }
 }
 
+// Only the hour/minute fields are consumed by the analog dial.
 fn newTm(from: pebble.tm, gmtoff: c_int, minoff: c_int) pebble.tm {
-    var mod = from;
-    mod.tm_gmtoff = gmtoff;
-    mod.tm_hour = wrappingAddHour(mod.tm_hour, gmtoff);
-    mod.tm_min = wrappingAddMin(mod.tm_min, minoff);
-    return mod;
-}
-
-fn wrappingAddHour(lhs: c_int, rhs: c_int) c_int {
-    return @rem((lhs + 24) + rhs, 24);
-}
-
-fn wrappingAddMin(lhs: c_int, rhs: c_int) c_int {
-    return @rem((lhs + 24) + rhs, 24);
+    var result = from;
+    const offset = gmtoff * 60 + minoff;
+    const shifted = @import("time_logic.zig").offsetMinutes(from.tm_hour, from.tm_min, offset);
+    result.tm_gmtoff = offset * 60;
+    result.tm_hour = shifted.hour;
+    result.tm_min = shifted.minute;
+    return result;
 }

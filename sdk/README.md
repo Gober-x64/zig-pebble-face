@@ -7,7 +7,7 @@ well as the Zig standard library.
 
 See the included [example watchface](example/) or follow the quickstart below.
 
-zig-pebble-sdk requires Zig version 0.15 and the Pebble SDK.
+zig-pebble-sdk requires Zig version 0.16 and the Pebble SDK.
 
 ## Quickstart
 
@@ -126,7 +126,7 @@ The `ld.lld: warning: address (0x82) of section .note.gnu.build-id is not a
 multiple of alignment (4)` warning can be safely ignored.
 
 The resulting `zig-out/watchface_example.pbw` can be installed to a Pebble
-watch or published to the or [Pebble](https://appstore-api.repebble.com/dashboard) or [Rebble](https://developer.rebble.io/guides/appstore-publishing/) app store.
+watch or published to the [Pebble](https://appstore-api.repebble.com/dashboard) or [Rebble](https://developer.rebble.io/guides/appstore-publishing/) app store.
 
 **Emulate the Pebble application:**
 
@@ -158,11 +158,19 @@ $ PEBBLE_EMULATOR=gabbro zig build upload
 </tr>
 </table>
 
-**Install the Pebble application to a watch:**
+**Install the Pebble application to a watch (via CloudPebble):**
+
+```
+$ PEBBLE_CLOUDPEBBLE=1 zig build upload
+```
+
+**Install the Pebble application to a watch (via local IP):**
 
 ```
 $ PEBBLE_PHONE=<phone ip> zig build upload
 ```
+
+Be sure to enable **Dev Connection** on the watch in the Pebble mobile app.
 
 ## Pebble C API
 
@@ -185,7 +193,7 @@ The translated Pebble C API can be inspected in the Zig cache with: `less $(find
 The `.pebble` substructure in the options of
 `pebble_sdk.addPebbleApplication()` mirrors the JSON [Pebble App
 Metadata](https://developer.repebble.com/guides/tools-and-resources/app-metadata/).
-See its [definition](build.zig#L409-L428) for an exhaustive list of options.
+See its [definition](build.zig#L427-L446) for an exhaustive list of options.
 
 The `uuid` field should be unique for every application, and can be generated
 with the `uuidgen` command.
@@ -203,6 +211,21 @@ IDs. For example, the ID of a resource named `IMAGE_FISH` can be looked up with
 
 As a convenience, generated application IDs are available at
 `zig-out/<platform>/<name>_appids.gen.zig` after building.
+
+## PebbleKit JS Sources
+
+Bundled PebbleKit JS source paths can be specified with the `pebblekit_js_file`
+and `pebblekit_js_map_file` fields in the options of
+`pebble_sdk.addPebbleApplication()` to be packaged into the pbw. Projects can
+incorporate custom JavaScript build flows to produce these files.
+
+See the [Pebble App
+Configuration](https://developer.repebble.com/guides/user-interfaces/app-configuration-static/)
+page for basic instructions on how to build a configuration page.
+
+See the [Heartburn
+Watchface](https://github.com/vsergeev/pebble-watchface-heartburn) for an
+example of a TypeScript + esbuild build flow.
 
 ## Important Notes
 
@@ -234,10 +257,10 @@ fn tick_handler(tick_time: ?*pebble.tm, units_changed: pebble.TimeUnits) callcon
 pebble.tick_timer_service_subscribe(pebble.MINUTE_UNIT, tick_handler);
 ```
 
-* Dctionary Tuple values can be accessed through dereference and the
+* Dictionary Tuple values can be accessed through dereference and the
   code-generated `value()` getter:
 
-```
+```zig
 const weather_temperature_tuple = pebble.dict_find(iterator, @intFromEnum(pebble_appids.MESSAGE_KEYS.WEATHER_TEMPERATURE)));
 const temperature: ?i32 = if (weather_temperature_tuple) |t| t.*.value().*.int32 else null;
 ```

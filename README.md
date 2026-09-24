@@ -2,4 +2,77 @@
 
 ![Pebble Royale: Written by hand, with love, in Zig.](https://cdn.some.pics/ewie/69e0f1b5d85be.png)
 
-Pebble watchface written in Zig. Uses the [zig pebble sdk](https://github.com/vsergeev/zig-pebble-sdk). Requires Zig 0.15.2 and the Pebble SDK to build. You may need to add a symlink to your Pebble SDK folder (the folder with an SDKs folder in it) to `.pebble-sdk` to build.
+Pebble Time 2 (`emery`) watchface using the [Zig Pebble SDK](https://github.com/vsergeev/zig-pebble-sdk).
+
+## Build
+
+Requires **Zig 0.16.0**, **Pebble SDK 4.33.1**, Node.js/npm, and uv.
+The vendored Zig SDK integration is version 1.4.2; its exact upstream revision
+and local changes are recorded in [sdk/UPSTREAM.md](sdk/UPSTREAM.md).
+
+```sh
+uv tool install pebble-tool
+pebble sdk install 4.33.1
+npm ci
+zig build
+```
+
+The build generates the phone configuration bundle from `src/pkjs` and produces
+`zig-out/royale.pbw`. It does not use the historical prebuilt JavaScript or PBW
+in `src/pkjs/pebble-js-app.js` and `build/`.
+
+Current XDG SDK locations and older Linux/macOS locations are detected automatically.
+To choose another installation explicitly:
+
+```sh
+zig build -Dpebble_sdk_path=/absolute/path/to/SDKs/4.33.1
+pebble install --emulator emery zig-out/royale.pbw
+```
+
+The metadata field `sdkVersion: 3` is Pebble's app metadata format, not the
+installed SDK release; it remains 3 when building with SDK 4.33.1.
+
+## Install on your watch
+
+This build supports **Pebble Time 2 (emery)**. In the current Pebble phone app,
+open **Devices → ⋮ → Enable Dev Connect** and sign in. Then use the same account
+on your computer:
+
+```sh
+pebble login
+pebble install --cloudpebble zig-out/royale.pbw
+```
+
+Keep the phone connected to your watch. The existing Royale watchface is updated
+in place because its UUID is unchanged. Open its settings in the phone app to
+choose the time format, refresh rate, and wrist-flick duration.
+See the [official installation instructions](https://developer.repebble.com/sdk/).
+
+## Settings
+
+- **Time format:** follow the watch preference (default), 12-hour, or 24-hour.
+  The 24-hour display uses `00`–`23`, with a leading zero. The original PM legend stays in its original position and faint mint-green
+  color, like inactive LCD segments; it never lights up in 24-hour mode.
+- **Refresh:** every second, 15 seconds, 30 seconds, or minute. Existing saved
+  values remain compatible. The digital seconds and analog dial share this cadence.
+- **Wrist flick:** show live seconds for 5, 10 (default), or 15 seconds, or disable
+  the feature. Another flick restarts the window. When it expires, the selected
+  cadence resumes; minute-only mode returns to minute ticks. Saving settings
+  cancels an active window and applies the new settings immediately.
+- **Analog timezone:** track local time or one of the listed fixed UTC offsets.
+  Minute carry/borrow and midnight rollover are handled correctly, including
+  fractional-hour zones. City selections **do not automatically adjust for DST**;
+  choose “None (Default)” to use the watch's local time and DST.
+
+## Checks
+
+```sh
+zig test src/zig/time_logic.zig
+npm test
+```
+
+For the emulator smoke test, install the PBW first, install Pillow in your Python
+environment, and run `python tests/emulator.py` with `pebble` on PATH. It changes
+emulator time/settings and captures screenshots under `/tmp/royale-*.png`.
+The test checks minute-only refresh, flick activation, repeated flicks, timeout,
+and the original inactive PM indicator. Physical wrist recognition still needs an on-watch check.

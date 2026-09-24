@@ -1,7 +1,7 @@
 {
   "name": "royale",
   "author": "Evie Finch",
-  "version": "1.0.1",
+  "version": "1.2.0",
   "keywords": [
     "pebble-app"
   ],
@@ -20,12 +20,21 @@
     "watchapp": {
       "watchface": true
     },
-    "messageKeys": [
-      "SettingsEnableSeconds",
-      "SettingsTimeZone"
-    ],
+    "messageKeys": {
+      "SettingsEnableSeconds": 10000,
+      "SettingsTimeZone": 10001,
+      "SettingsHourFormat": 10002,
+      "SettingsFlickSeconds": 10003
+    },
     "resources": {
       "media": []
     }
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  },
+  "scripts": {
+    "build:js": "node scripts/build-js.js",
+    "test": "node tests/config.test.js"
   }
 }
