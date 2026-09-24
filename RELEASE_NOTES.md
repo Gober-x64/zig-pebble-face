@@ -35,9 +35,28 @@ this fork. The original copyright and license are preserved in the repository.
 
 ## Install
 
-Download **royale.pbw** from this release's assets. With the Pebble CLI installed,
-enable **Devices → ⋮ → Enable Dev Connect** in the Pebble phone app and sign in.
-Use the same account on your computer:
+### From your phone (no PC or CLI required)
+
+1. Open the [GitHub releases page](https://github.com/Gober-x64/zig-pebble-face/releases)
+   on your phone and select the release you want.
+2. Under **Assets**, download **royale.pbw**, not either of the “Source code” archives.
+3. Open the downloaded file with the **Pebble app**:
+   - **Android:** open Downloads in your file manager, tap `royale.pbw`, and choose
+     **Open with → Pebble**.
+   - **iPhone:** open **Files → Downloads**, select `royale.pbw`, and use
+     **Share → Pebble** if that option is available.
+4. Keep your watch connected to the phone and follow the Pebble app's installation
+   prompts.
+
+This method does not require Zig, the Pebble SDK, or Dev Connect. File-opening
+options vary by phone and Pebble app version. If Pebble is not offered, make sure
+its app is up to date; you can also use the computer method below.
+See [Rebble's direct-file installation instructions](https://help.rebble.io/lockerSync/).
+
+### From a computer (alternative)
+
+With the Pebble CLI installed, open **Devices → ⋮ → Enable Dev Connect** in the
+Pebble phone app and sign in. Use the same account on your computer:
 
 ```sh
 pebble login
